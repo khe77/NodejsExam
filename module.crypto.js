@@ -44,9 +44,7 @@ fs.writeFile('password.txt', JSON.stringify(data),
 					console.log(err);		
 				} else {
 					console.log('data='+data);
-					console.log('read completed...');
 				}
 			})
 		}
-
 	});
