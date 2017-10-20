@@ -5,6 +5,10 @@ var app = express();
 app.use(bodyParser.urlencoded({extended:false}));
 app.use(express.static(__dirname+'/public'));
 
+//크로스도메인 이슈 대응 (CORS)
+var cors = require('cors')();
+app.use(cors);
+
 var mysql = require('mysql');
 var connection = mysql.createConnection({
   host     : 'localhost',
@@ -14,6 +18,8 @@ var connection = mysql.createConnection({
 });
 connection.connect();
 ////////////////////////////////////////////////////
+//C:\Users\60029510>cd \mongodb
+//C:\mongodb>bin\mongod -dbpath .\var
 var MongoClient = require('mongodb').MongoClient; 
 var url = 'mongodb://localhost:27017/restful';
 var dbObj = null;
@@ -21,6 +27,33 @@ MongoClient.connect(url, function(err, db) {
 	console.log("Connected correctly to server");
 	dbObj = db;
 });
+///////////////////////////////////
+var multer = require('multer');
+var Storage = multer.diskStorage({
+     destination: function(req, file, callback) {
+         callback(null, "./public/upload_image/");
+     },
+     filename: function(req, file, callback) {
+     		file.uploadedFile = file.fieldname + "_" + 
+     			Date.now() + "_" + file.originalname;
+     		console.log('file.uploadedFile:'+file.uploadedFile);
+         callback(null, file.uploadedFile);
+     }
+ });
+ var upload = multer({
+     storage: Storage
+ }).single("image");
+app.post('/user/picture',function(req, res) {
+	upload(req, res, function(err) {
+		if (err) {
+			res.send(JSON.stringify(err));
+		} else {
+			res.send(JSON.stringify({url:req.file.uploadedFile,
+				description:req.body.description}));
+		}
+	});
+});
+///////////////////////////////////
 app.get('/user/message',function(req,res) {
 	console.log(req.query.sender_id);
 	var  condition = {};
@@ -105,7 +138,7 @@ app.delete('/user/message/:id',function(req,res) {
 });
 
 app.get('/user',function(req,res) {
-	connection.query('select * from user',
+	connection.query('select ad1* from user',
 		function(err,results,fields) {
 			if (err) {
 				res.send(JSON.stringify(err));
