@@ -1,6 +1,5 @@
 var express = require('express');
 var bodyParser = require('body-parser');
-
 var app = express();
 app.use(bodyParser.urlencoded({extended:false}));
 app.use(express.static(__dirname+'/public'));
@@ -15,17 +14,15 @@ var connection = mysql.createConnection({
   user     : 'root',
   password : 'test1234',
   database : 'restful'
-});
+}); 
 connection.connect();
-////////////////////////////////////////////////////
-//C:\Users\60029510>cd \mongodb
-//C:\mongodb>bin\mongod -dbpath .\var
-var MongoClient = require('mongodb').MongoClient; 
+///////////////////////////////////
+var MongoClient = require('mongodb').MongoClient;
 var url = 'mongodb://localhost:27017/restful';
 var dbObj = null;
 MongoClient.connect(url, function(err, db) {
-	console.log("Connected correctly to server");
-	dbObj = db;
+  console.log("Connected correctly to server");
+  dbObj = db;
 });
 ///////////////////////////////////
 var multer = require('multer');
@@ -56,12 +53,12 @@ app.post('/user/picture',function(req, res) {
 ///////////////////////////////////
 app.get('/user/message',function(req,res) {
 	console.log(req.query.sender_id);
-	var  condition = {};
+	var condition = {};
 	if (req.query.sender_id != undefined)
 		condition = {sender_id:req.query.sender_id};
 	var messages = dbObj.collection('messages');
 	messages.find(condition)
-		.toArray(function(err,results) {
+		.toArray(function(err, results){
 		if (err) {
 			res.send(JSON.stringify(err));
 		} else {
@@ -74,7 +71,7 @@ app.get('/user/message/:id',function(req,res) {
 	var messages = dbObj.collection('messages');
 	messages.findOne(
 		{_id:ObjectID.createFromHexString(req.params.id)},
-		function(err, result) {
+		function(err, result){
 			if (err) {
 				res.send(JSON.stringify(err));
 			} else {
@@ -89,18 +86,18 @@ app.post('/user/message',function(req,res) {
 	connection.query(
 		'select id,name from user where id=? or id=?',
 		[req.body.sender_id,req.body.reciever_id],
-		function(err,results,fields) {
+		function(err, results, fields) {
 			if (err) {
 				res.send(JSON.stringify(err));
 			} else {
 				var sender = {};
 				var reciever = {};
-				for (var i = 0; i < results.length; i++) {
-					if(results[i].id ==
+				for (var i = 0; i < results.length; i++){
+					if (results[i].id == 
 						Number(req.body.sender_id)) {
 						sender = results[i];
 					}
-					if(results[i].id ==
+					if (results[i].id ==
 						Number(req.body.reciever_id)) {
 						reciever = results[i];
 					}
@@ -113,22 +110,21 @@ app.post('/user/message',function(req,res) {
 					created_at:new Date()
 				}
 				var messages = dbObj.collection('messages');
-				messages.save(object, function(err,result){
-					if(err) {
+				messages.save(object, function(err, result){
+					if (err) {
 						res.send(JSON.stringify(err));
 					} else {
 						res.send(JSON.stringify(result));
 					}
 				});
 			}
-		}
-	);
+		});
 });
 app.delete('/user/message/:id',function(req,res) {
 	var messages = dbObj.collection('messages');
 	messages.remove(
 		{_id:ObjectID.createFromHexString(req.params.id)},
-		function(err, result) {
+		function(err, result){
 			if (err) {
 				res.send(JSON.stringify(err));
 			} else {
@@ -138,7 +134,7 @@ app.delete('/user/message/:id',function(req,res) {
 });
 
 app.get('/user',function(req,res) {
-	connection.query('select ad1* from user',
+	connection.query('select * from user', 
 		function(err,results,fields) {
 			if (err) {
 				res.send(JSON.stringify(err));
@@ -147,50 +143,70 @@ app.get('/user',function(req,res) {
 			}
 		});
 });
-app.get('/user/:id',function(req,res) {
+app.get('/user/:id',function(req,res){
 	connection.query('select * from user where id=?',
-		[req.params.id], function(err,results,fields) {
+		[req.params.id], function(err, results, fields) {
 			if (err) {
 				res.send(JSON.stringify(err));
 			} else {
 				if (results.length > 0) {
-					results[0].city = '서울';
-					res.send(JSON.stringify(results[0]));	
+					res.send(JSON.stringify(results[0]));
 				} else {
 					res.send(JSON.stringify({}));
-				}				
+				}
+				
 			}
 		});
 });
+var crypto = require('crypto');
 app.post('/user',function(req,res){
-	 connection.query(
-	 	'insert into user(name,age)  values(?,?)',
-	 	[ req.body.name, req.body.age ],
-	 	function(err,result) {
-	 		if (err) {
-	 			res.send(JSON.stringify(err));
-	 		} else {
-	 			res.send(JSON.stringify(result));
-	 		}
-	 	});
-});
-app.put('/user/:id',function(req,res) {
+	var password = req.body.password;
+	var hash = crypto.createHash('sha256').
+		update(password).digest('base64');
 	connection.query(
-		'update user set name=?,age=? where id=?',
-		[ req.body.name, req.body.age, req.params.id ],
-		function(err,result) {
+		'insert into user(user_id,password,name,age) values(?,?,?,?)',
+		[ req.body.user_id, hash, req.body.name, req.body.age ], 
+		function(err, result) {
 			if (err) {
 				res.send(JSON.stringify(err));
 			} else {
 				res.send(JSON.stringify(result));
 			}
+		})
+});
+app.post('/user/login',function(req,res){
+	var password = req.body.password;
+	var hash = crypto.createHash('sha256').
+		update(password).digest('base64');
+	connection.query('select id from user where user_id = ? and password = ?',
+		[ req.body.user_id, hash ],
+		function(err, results, fields) {
+			if (err) {
+				res.send(JSON.stringify(err));
+			} else {
+				if (results.length > 0) {//조건만족 -> 로그인 성공
+					res.send(JSON.stringify({result:true}));
+				} else {//조건불만족 -> 로그인 실패
+					res.send(JSON.stringify({result:false}));
+				}
+			}
 		});
 });
-app.delete('/user/:id',function(req,res){
+app.put('/user/:id',function(req,res){
 	connection.query(
-		'delete from user where id=?',
-		[ req.params.id ],
-		function(err,result) {
+		'update user set name=?,age=? where id=?',
+		[ req.body.name, req.body.age, req.params.id ],
+		function(err, result) {
+			if (err) {
+				res.send(JSON.stringify(err));
+			} else {
+				res.send(JSON.stringify(result));
+			}
+		})
+});
+app.delete('/user/:id',function(req,res){
+	connection.query('delete from user where id=?',
+		[ req.params.id ], function(err, result) {
 			if (err) {
 				res.send(JSON.stringify(err));
 			} else {
