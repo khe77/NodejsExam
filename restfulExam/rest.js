@@ -158,6 +158,18 @@ app.get('/user/:id',function(req,res){
 			}
 		});
 });
+app.post('/user/nologin',function(req,res){
+	connection.query(
+		'insert into user_nologin(device_token) values(?)',
+		[ req.body.device_token ], 
+		function(err, result) {
+			if (err) {
+				res.send(JSON.stringify({result:false,err:err}));
+			} else {
+				res.send(JSON.stringify({result:true,db_result:result}));
+			}
+		})
+});
 var crypto = require('crypto');
 app.post('/user',function(req,res){
 	var password = req.body.password;
@@ -179,9 +191,9 @@ app.post('/user/login',function(req,res){
 	var password = req.body.password;
 	var hash = crypto.createHash('sha256').
 		update(password).digest('base64');
-	connection.query('select id from user where user_id = ? and password = ?',
-		[ req.body.user_id, hash ],
-		function(err, results, fields) {
+	connection.query(
+		'select id from user where user_id=? and password=?',
+		[ req.body.user_id, hash ], function(err, results, fields){
 			if (err) {
 				res.send(JSON.stringify(err));
 			} else {
@@ -203,16 +215,17 @@ app.post('/user/login',function(req,res){
 							kid:'abcdefghijklmnopqrstuvwxyz1234567890'
 						}
 					};
-					var secret = "SHINHANMOBILETOPSECRET!!!!!!!!!!!!!!";
+					var secret = "SHINHANMOBILETOPSECRET!!!!!!!!";
 					//고유한 토큰 생성
-					jwt.encode(secret, settingAddHeaders,
+					jwt.encode(secret, settingAddHeaders, 
 						function(err, token) {
 							if (err) {
 								res.send(JSON.stringify(err));
 							} else {
 								var tokens = token.split(".");
 								connection.query(
-									'insert into user_login(token,user_real_id) values(?,?)',
+									'insert into user_login('+
+									'token,user_real_id) values(?,?)',
 									[tokens[2], results[0].id],
 									function(err, result) {
 										if (err) {
@@ -225,10 +238,8 @@ app.post('/user/login',function(req,res){
 											}));
 										}
 									});
-								//res.send(JSON.stringify({result:true,token:tokens[2]}));
 							}
 						});
-					//res.send(JSON.stringify({result:true}));
 				} else {//조건불만족 -> 로그인 실패
 					res.send(JSON.stringify({result:false}));
 				}
@@ -257,6 +268,52 @@ app.delete('/user/:id',function(req,res){
 			}
 		});
 });
+/*
+서버키
+AAAAR74VBVk:APA91bHof8sTERy8WcbsRV8CmzMs-rv_cAWC_vA_zR10QT65A5ECzrtPJOae743DMrBB2lN6pqoi2i8LRcOB265x7BqrvKmruCbmn450Rp5_iL-gaS-TyV9eqf-xu9mYRPesuaKKiUGr 
+이전 서버 키 :
+AIzaSyDaJ5e48oW6akCgf-ZnXKQgl7YkEe7sh68 
+웹 API 키:
+AIzaSyBqkCGNfnqGae1fV7mGWqC9_Rodvw7epxc 
+*/
+var FCM = require('fcm-node');
+var serverKey = 'AAAAR74VBVk:APA91bHof8sTERy8WcbsRV8CmzMs-rv_cAWC_vA_zR10QT65A5ECzrtPJOae743DMrBB2lN6pqoi2i8LRcOB265x7BqrvKmruCbmn450Rp5_iL-gaS-TyV9eqf-xu9mYRPesuaKKiUGr'; //put your server key here
+var fcm = new FCM(serverKey);
+app.post('/user/push/:id',function(req,res) {
+	connection.query(
+		'select device_token from user_nologin where id=?',
+		[ req.params.id ], 
+		function(err, results, fields) {
+			if (err) {
+				res.send(JSON.stringify({result:false,err:err}));
+			} else {
+				if (results.length > 0) {
+					var message = { //this may vary according to the message type (single recipient, multicast, topic, et cetera)
+				        to: results[0].device_token, 
+				        collapse_key: 'shinhan_collapse_key',
+				        notification: {
+				            title: 'PUSH NOTI TEST', 
+				            body: 'this is a body of your push notification' 
+				        },				        
+				        data: {  //you can send only notification or only data(or include both)
+				            data1: 'value1',
+				            data2: 'value2'
+				        }
+				    };
+				    fcm.send(message, function(err, response){
+				        if (err) {
+				            res.send(JSON.stringify({result:false,err:err}));
+				        } else {
+				        	res.send(JSON.stringify({result:true,response:response}));
+				        }
+				    });
+				} else {
+					res.send(JSON.stringify({result:false,err:'do not exist device token'}));
+				}
+			}
+		});	
+});
+
 app.listen(52273,function() {
 	console.log('Server running');
 });
